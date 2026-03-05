@@ -4,24 +4,12 @@
 
 Every project has a `Makefile` in the root. Commands are self-documenting — no memorisation required.
 
-**Required targets:**
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | Start the application in development mode |
-| `make test` | Run the full test suite |
-| `make build` | Produce a release artifact |
-| `make clean` | Remove build outputs and generated files |
-| `make gen` | Run code generation (mocks, serialization, protobufs, etc.) |
-| `make debug` | Start the app in debug / DAP-attach mode |
-| `make lint` | Run the linter |
-| `make format` | Run the formatter |
-| `make help` | Print all available targets with a one-line description |
+Common categories of targets include: running, testing, building, cleaning, code generation, debugging, linting, and formatting. Name targets to match your project's needs — the key principle is that `Makefile` is the single entry point for all project tasks.
 
 Rules:
 - Do not commit VSCode tasks (`tasks.json`) or IDE run configs. The Makefile is the universal interface.
-- `make help` must always work. Use a self-documenting pattern — `##` comments parsed by the help target.
-- Add language-specific targets as needed (e.g. `make migrate`, `make proto`, `make docker`).
+- Include a help target. Use a self-documenting pattern — `##` comments parsed by the help target.
+- Add project-specific targets as needed (e.g. migrations, protobuf generation, Docker commands).
 
 Example self-documenting help target:
 ```makefile
@@ -33,7 +21,7 @@ help: ## Show this help
 
 ## DAP Debugging
 
-- `make debug` starts the application in debug mode, or in attach mode on a known port.
+- A debug target in the Makefile starts the application in debug mode, or in attach mode on a known port.
 - The port and connection URL are printed to stdout so any DAP client can connect.
 - IDEs connect via their DAP adapter — no IDE-specific debug configuration is committed to the repo.
 - Language-specific DAP adapters: Dart (`dart debugger`), Python (`debugpy`), Go (`dlv dap`), Node.js (`--inspect`), Java (`jdwp`), C/C++ (`lldb-dap` / `cppdbg`), .NET (`netcoredbg`).

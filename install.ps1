@@ -1,17 +1,18 @@
 # Project Standards Installer
 #
 # Windows PowerShell:
-#   irm https://raw.githubusercontent.com/antonkoetzler/project-standards/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/antonkoetzler/myoro-project-standards/main/install.ps1 | iex
 #
 # Or download and run directly:
-#   .\install.ps1 [--dry-run]
+#   .\install.ps1 [--dry-run] [--sync]
 #
 # Dry-run via environment variable (works with iex):
 #   $env:DRY_RUN = "1"; irm ... | iex
 
 $ErrorActionPreference = 'Stop'
-$REPO = 'https://raw.githubusercontent.com/antonkoetzler/project-standards/main'
+$REPO = 'https://raw.githubusercontent.com/antonkoetzler/myoro-project-standards/main'
 $DryRun = ($args -contains '--dry-run') -or ($args -contains '-n') -or ($env:DRY_RUN -eq '1')
+$Sync = ($args -contains '--sync') -or ($env:SYNC -eq '1')
 
 # Require an interactive console
 if (-not [Environment]::UserInteractive) {
@@ -28,6 +29,169 @@ function Get-SafeName {
   param([string]$Path)
   $p = $Path -replace '^(languages|practices)/', ''
   return $p -replace '/', '_'
+}
+
+# ── Fetch helper ──────────────────────────────────────────────────────────────
+function Get-RemoteText {
+  param([string]$Url)
+  try {
+    return (Invoke-RestMethod -Uri $Url -UseBasicParsing -ErrorAction Stop)
+  } catch {
+    return $null
+  }
+}
+
+# ── Write file (respects dry-run) ─────────────────────────────────────────────
+function Write-ProjectFile {
+  param([string]$Path, [string]$Content)
+  if ($DryRun) {
+    Write-Host "  [dry-run] $Path" -ForegroundColor DarkGray
+    return
+  }
+  $dir = Split-Path -Path $Path -Parent
+  if ($dir -and -not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+  Set-Content -Path $Path -Value $Content -Encoding UTF8 -Force
+}
+
+# ── Write once (only if file does not already exist) ─────────────────────────
+function Write-ProjectFileOnce {
+  param([string]$Path, [string]$Content)
+  if ($DryRun) {
+    if (Test-Path $Path) {
+      Write-Host "  [dry-run] $Path (already exists -- skipped)" -ForegroundColor DarkGray
+    } else {
+      Write-Host "  [dry-run] $Path (would create)" -ForegroundColor DarkGray
+    }
+    return
+  }
+  if (Test-Path $Path) { return }
+  $dir = Split-Path -Path $Path -Parent
+  if ($dir -and -not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+  Set-Content -Path $Path -Value $Content -Encoding UTF8 -Force
+}
+
+$ManifestPath = 'docs\myoro-project-standards\.manifest'
+
+# ── Sync mode ────────────────────────────────────────────────────────────────
+if ($Sync) {
+  if (-not (Test-Path $ManifestPath)) {
+    Write-Host "Error: No manifest found at $ManifestPath" -ForegroundColor Red
+    Write-Host 'Run the installer without --sync first to set up your project.'
+    exit 1
+  }
+
+  Write-Host '  +-------------------------------------------+' -ForegroundColor Cyan
+  Write-Host '  |   Project Standards Sync                  |' -ForegroundColor Cyan
+  Write-Host '  +-------------------------------------------+' -ForegroundColor Cyan
+  Write-Host ''
+
+  if ($DryRun) { Write-Host '  DRY RUN -- no files will be written' -ForegroundColor Yellow; Write-Host '' }
+
+  Write-Host "  Syncing standards in: $(Get-Location)" -ForegroundColor Cyan
+  Write-Host ''
+
+  $manifestLines = Get-Content $ManifestPath
+  $syncPaths = @(); $syncLabels = @(); $syncGlobs = @(); $syncAlways = @()
+  $syncTools = @()
+
+  foreach ($line in $manifestLines) {
+    if ($line.StartsWith('tools:')) {
+      $syncTools = @($line.Substring(6).Split(',') | Where-Object { $_ -ne '' })
+      continue
+    }
+    $parts = $line.Split('|')
+    if ($parts.Count -ge 4) {
+      $syncPaths  += $parts[0]
+      $syncLabels += $parts[1]
+      $syncGlobs  += $parts[2]
+      $syncAlways += $parts[3]
+    }
+  }
+
+  # Re-fetch standards
+  $okPaths = @(); $okLabels = @(); $okGlobs = @(); $okAlways = @()
+  for ($i = 0; $i -lt $syncPaths.Count; $i++) {
+    $path   = $syncPaths[$i]
+    $label  = $syncLabels[$i]
+    $glob   = $syncGlobs[$i]
+    $always = $syncAlways[$i]
+    $safe   = Get-SafeName $path
+
+    Write-Host "  Fetching $label... " -NoNewline
+    $content = Get-RemoteText "$REPO/$path/RULES.md"
+
+    if ($null -ne $content) {
+      Write-ProjectFile "docs\myoro-project-standards\$safe.md" $content
+      $okPaths  += $path
+      $okLabels += $label
+      $okGlobs  += $glob
+      $okAlways += $always
+      Write-Host 'done' -ForegroundColor Green
+    } else {
+      Write-Host 'failed (skipped)' -ForegroundColor Red
+    }
+  }
+
+  # Regenerate tool configs
+  foreach ($tool in $syncTools) {
+    Write-Host "  Regenerating $tool config... " -NoNewline
+
+    switch ($tool) {
+      'claude' {
+        if (Test-Path 'CLAUDE.md') { Remove-Item 'CLAUDE.md' -Force }
+        $md = "# Project Rules`n`nStandards are stored in ``docs/myoro-project-standards/``. Files below are auto-loaded into context.`n"
+        for ($i = 0; $i -lt $okPaths.Count; $i++) {
+          $safe = Get-SafeName $okPaths[$i]
+          $md  += "`n@docs/myoro-project-standards/$safe.md"
+          $md  += "`n# @docs/custom/$safe.md (create to extend)"
+        }
+        Write-ProjectFile 'CLAUDE.md' $md
+      }
+      'cursor' {
+        if (Test-Path '.cursor\rules') { Remove-Item '.cursor\rules' -Recurse -Force }
+        for ($i = 0; $i -lt $okPaths.Count; $i++) {
+          $safe = Get-SafeName $okPaths[$i]
+          $alwaysStr = if ([int]$okAlways[$i] -eq 1) { 'true' } else { 'false' }
+          $mdc = "---`ndescription: $($okLabels[$i]) standards`nglobs: $($okGlobs[$i])`nalwaysApply: $alwaysStr`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          Write-ProjectFile ".cursor\rules\$safe.mdc" $mdc
+        }
+      }
+      'windsurf' {
+        if (Test-Path '.windsurf\rules') { Remove-Item '.windsurf\rules' -Recurse -Force }
+        for ($i = 0; $i -lt $okPaths.Count; $i++) {
+          $safe = Get-SafeName $okPaths[$i]
+          $ws = if ([int]$okAlways[$i] -eq 1) {
+            "---`ntrigger: always_on`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          } else {
+            "---`ntrigger: glob`nglobs: $($okGlobs[$i])`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          }
+          Write-ProjectFile ".windsurf\rules\$safe.md" $ws
+        }
+      }
+      'copilot' {
+        if (Test-Path '.github\instructions') { Remove-Item '.github\instructions' -Recurse -Force }
+        if (Test-Path '.github\copilot-instructions.md') { Remove-Item '.github\copilot-instructions.md' -Force }
+        $idx = "# Copilot Instructions`n`nPer-language and practice rules in ``.github\instructions\`` -- each references ``docs\myoro-project-standards\``.`n"
+        for ($i = 0; $i -lt $okPaths.Count; $i++) {
+          $safe = Get-SafeName $okPaths[$i]
+          $inst = "---`napplyTo: `"$($okGlobs[$i])`"`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          Write-ProjectFile ".github\instructions\$safe.instructions.md" $inst
+          $idx += "`n- ``$safe`` -> ``.github\instructions\$safe.instructions.md``"
+        }
+        Write-ProjectFile '.github\copilot-instructions.md' $idx
+      }
+    }
+    Write-Host 'done' -ForegroundColor Green
+  }
+
+  Write-Host ''
+  Write-Host '  Sync complete!' -ForegroundColor Green
+  Write-Host ''
+  exit 0
 }
 
 # ── Language data ─────────────────────────────────────────────────────────────
@@ -52,15 +216,16 @@ $LangItems = @(
 # ── Practice data ─────────────────────────────────────────────────────────────
 # @(Label, RepoPath, Glob, AlwaysApply)  AlwaysApply: $true/$false
 $PracticeItems = @(
-  @('Engineering (SOLID, clean code, DRY)', 'practices/engineering',   '**/*',                                  $true),
-  @('Workflow (Makefile, DAP, no IDE)',      'practices/workflow',      '**/*',                                  $true),
-  @('Git & version control',                'practices/git',           '**/*',                                  $true),
-  @('API design',                           'practices/api',           '**/*',                                  $true),
-  @('Security',                             'practices/security',      '**/*',                                  $true),
-  @('SQL / Database',                       'practices/sql',           '**/*.sql,**/*.prisma,**/*.graphql',      $false),
-  @('Design (UI/UX)',                       'practices/design',        '**/*.css,**/*.html,**/*.tsx,**/*.vue',   $false),
-  @('Observability',                        'practices/observability', '**/*',                                  $true),
-  @('Testing strategy',                     'practices/testing',       '**/*.test.*,**/*.spec.*',               $false)
+  @('AI code ownership',                           'practices/ai',            '**/*',                                  $true),
+  @('Engineering (SOLID, clean code, DRY)',         'practices/engineering',   '**/*',                                  $true),
+  @('Workflow (Makefile, DAP, no IDE)',             'practices/workflow',      '**/*',                                  $true),
+  @('Git & version control',                       'practices/git',           '**/*',                                  $true),
+  @('API design',                                  'practices/api',           '**/*',                                  $true),
+  @('Security',                                    'practices/security',      '**/*',                                  $true),
+  @('SQL / Database',                              'practices/sql',           '**/*.sql,**/*.prisma,**/*.graphql',      $false),
+  @('Design (UI/UX)',                              'practices/design',        '**/*.css,**/*.html,**/*.tsx,**/*.vue',   $false),
+  @('Observability',                               'practices/observability', '**/*',                                  $true),
+  @('Testing strategy',                            'practices/testing',       '**/*.test.*,**/*.spec.*',               $false)
 )
 
 $ToolItems = @(
@@ -146,49 +311,6 @@ function Invoke-Menu {
   }
 }
 
-# ── Fetch helper ──────────────────────────────────────────────────────────────
-function Get-RemoteText {
-  param([string]$Url)
-  try {
-    return (Invoke-RestMethod -Uri $Url -UseBasicParsing -ErrorAction Stop)
-  } catch {
-    return $null
-  }
-}
-
-# ── Write file (respects dry-run) ─────────────────────────────────────────────
-function Write-ProjectFile {
-  param([string]$Path, [string]$Content)
-  if ($DryRun) {
-    Write-Host "  [dry-run] $Path" -ForegroundColor DarkGray
-    return
-  }
-  $dir = Split-Path -Path $Path -Parent
-  if ($dir -and -not (Test-Path $dir)) {
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-  }
-  Set-Content -Path $Path -Value $Content -Encoding UTF8 -Force
-}
-
-# ── Write once (only if file does not already exist) ─────────────────────────
-function Write-ProjectFileOnce {
-  param([string]$Path, [string]$Content)
-  if ($DryRun) {
-    if (Test-Path $Path) {
-      Write-Host "  [dry-run] $Path (already exists -- skipped)" -ForegroundColor DarkGray
-    } else {
-      Write-Host "  [dry-run] $Path (would create)" -ForegroundColor DarkGray
-    }
-    return
-  }
-  if (Test-Path $Path) { return }
-  $dir = Split-Path -Path $Path -Parent
-  if ($dir -and -not (Test-Path $dir)) {
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-  }
-  Set-Content -Path $Path -Value $Content -Encoding UTF8 -Force
-}
-
 # ── Main installer ────────────────────────────────────────────────────────────
 function Start-Install {
   # Collect selections
@@ -253,11 +375,11 @@ function Start-Install {
 
   Write-Host '  WARNING: The following will be completely replaced if they exist:' -ForegroundColor Yellow
   Write-Host '    CLAUDE.md' -ForegroundColor Yellow
-  Write-Host '    .cursor\rules\       (entire directory)' -ForegroundColor Yellow
-  Write-Host '    .windsurf\rules\     (entire directory)' -ForegroundColor Yellow
-  Write-Host '    .github\instructions\(entire directory)' -ForegroundColor Yellow
+  Write-Host '    .cursor\rules\                (entire directory)' -ForegroundColor Yellow
+  Write-Host '    .windsurf\rules\              (entire directory)' -ForegroundColor Yellow
+  Write-Host '    .github\instructions\         (entire directory)' -ForegroundColor Yellow
   Write-Host '    .github\copilot-instructions.md' -ForegroundColor Yellow
-  Write-Host '    docs\*.md            (managed files -- docs\custom\ is never touched)' -ForegroundColor Yellow
+  Write-Host '    docs\myoro-project-standards\ (managed files -- docs\custom\ is never touched)' -ForegroundColor Yellow
   Write-Host ''
 
   Write-Host '  Is this correct? [y/N] ' -ForegroundColor White -NoNewline
@@ -283,7 +405,7 @@ function Start-Install {
     }
   }
 
-  # ── Fetch into docs\ ──────────────────────────────────────────────────────
+  # ── Fetch into docs\myoro-project-standards\ ─────────────────────────────
   $okPaths  = @(); $okLabels = @(); $okGlobs = @(); $okAlways = @()
 
   for ($i = 0; $i -lt $selPaths.Count; $i++) {
@@ -297,7 +419,7 @@ function Start-Install {
     $content = Get-RemoteText "$REPO/$path/RULES.md"
 
     if ($null -ne $content) {
-      Write-ProjectFile "docs\$safe.md" $content
+      Write-ProjectFile "docs\myoro-project-standards\$safe.md" $content
       $okPaths  += $path
       $okLabels += $label
       $okGlobs  += $glob
@@ -314,6 +436,16 @@ function Start-Install {
     exit 1
   }
 
+  # ── Write manifest ──────────────────────────────────────────────────────
+  $manifestLines = @()
+  for ($i = 0; $i -lt $okPaths.Count; $i++) {
+    $alwaysVal = if ($okAlways[$i]) { '1' } else { '0' }
+    $manifestLines += "$($okPaths[$i])|$($okLabels[$i])|$($okGlobs[$i])|$alwaysVal"
+  }
+  $toolsJoined = $selTools -join ','
+  $manifestLines += "tools:$toolsJoined"
+  Write-ProjectFile $ManifestPath ($manifestLines -join "`n")
+
   # ── docs\custom\ ─────────────────────────────────────────────────────────
   $customReadme = @"
 # docs/custom/
@@ -321,7 +453,7 @@ function Start-Install {
 This folder is yours. The installer never touches it.
 
 Create <safe_name>.md files here to add project-specific rules on top of the
-upstream standards. File names must match the safe names used in docs/:
+upstream standards. File names must match the safe names used in docs/myoro-project-standards/:
 
   dart.md, dart_flutter.md, typescript.md, engineering.md, git.md, etc.
 
@@ -338,10 +470,10 @@ All AI tool configs include a comment pointing here so you know where to extend.
     switch ($tool) {
 
       'claude' {
-        $md = "# Project Rules`n`nStandards are stored in ``docs/``. Files below are auto-loaded into context.`n"
+        $md = "# Project Rules`n`nStandards are stored in ``docs/myoro-project-standards/``. Files below are auto-loaded into context.`n"
         for ($i = 0; $i -lt $okPaths.Count; $i++) {
           $safe = Get-SafeName $okPaths[$i]
-          $md  += "`n@docs/$safe.md"
+          $md  += "`n@docs/myoro-project-standards/$safe.md"
           $md  += "`n# @docs/custom/$safe.md (create to extend)"
         }
         Write-ProjectFile 'CLAUDE.md' $md
@@ -352,7 +484,7 @@ All AI tool configs include a comment pointing here so you know where to extend.
           $path   = $okPaths[$i]; $label = $okLabels[$i]; $glob = $okGlobs[$i]; $always = $okAlways[$i]
           $safe   = Get-SafeName $path
           $alwaysStr = if ($always) { 'true' } else { 'false' }
-          $mdc    = "---`ndescription: $label standards`nglobs: $glob`nalwaysApply: $alwaysStr`n---`n`n@docs/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          $mdc    = "---`ndescription: $label standards`nglobs: $glob`nalwaysApply: $alwaysStr`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
           Write-ProjectFile ".cursor\rules\$safe.mdc" $mdc
         }
       }
@@ -362,20 +494,20 @@ All AI tool configs include a comment pointing here so you know where to extend.
           $path = $okPaths[$i]; $glob = $okGlobs[$i]; $always = $okAlways[$i]
           $safe = Get-SafeName $path
           $ws   = if ($always) {
-            "---`ntrigger: always_on`n---`n`n@docs/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+            "---`ntrigger: always_on`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
           } else {
-            "---`ntrigger: glob`nglobs: $glob`n---`n`n@docs/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+            "---`ntrigger: glob`nglobs: $glob`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
           }
           Write-ProjectFile ".windsurf\rules\$safe.md" $ws
         }
       }
 
       'copilot' {
-        $idx = "# Copilot Instructions`n`nPer-language and practice rules in ``.github\instructions\`` -- each references ``docs\``.`n"
+        $idx = "# Copilot Instructions`n`nPer-language and practice rules in ``.github\instructions\`` -- each references ``docs\myoro-project-standards\``.`n"
         for ($i = 0; $i -lt $okPaths.Count; $i++) {
           $path = $okPaths[$i]; $glob = $okGlobs[$i]
           $safe = Get-SafeName $path
-          $inst = "---`napplyTo: `"$glob`"`n---`n`n@docs/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
+          $inst = "---`napplyTo: `"$glob`"`n---`n`n@docs/myoro-project-standards/$safe.md`n# Custom additions: create docs/custom/$safe.md to extend"
           Write-ProjectFile ".github\instructions\$safe.instructions.md" $inst
           $idx += "`n- ``$safe`` -> ``.github\instructions\$safe.instructions.md``"
         }
@@ -393,9 +525,9 @@ All AI tool configs include a comment pointing here so you know where to extend.
   } else {
     Write-Host '  Done!' -ForegroundColor Green
     Write-Host ''
-    Write-Host '  docs\              standards content (overwritten on re-run)' -ForegroundColor White
-    Write-Host '  docs\custom\       your permanent zone (never touched by installer)' -ForegroundColor White
-    Write-Host '  AI tool configs    reference docs\ -- use docs\custom\ to extend.' -ForegroundColor DarkGray
+    Write-Host '  docs\myoro-project-standards\  standards (overwritten on re-run or --sync)' -ForegroundColor White
+    Write-Host '  docs\custom\                   your permanent zone (never touched)' -ForegroundColor White
+    Write-Host '  Re-sync: run with --sync to re-fetch standards without repeating setup.' -ForegroundColor DarkGray
   }
   Write-Host ''
 }

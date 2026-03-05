@@ -20,12 +20,6 @@
 - **Config:** `pydantic-settings` or validated dataclass. No `os.environ.get()` in business logic. Fail fast at startup.
 - **DI:** Pass dependencies explicitly. No hard-to-mock module-level singletons.
 
-## Makefile
-
-- `make run` — `python -m src.main`; `make test` — pytest; `make build` — `python -m build`
-- `make debug` — debugpy on port 5678 (`--wait-for-client`)
-- `make lint` — ruff; `make format` — black + ruff fix; `make typecheck` — mypy
-
 ## Testing
 
 - pytest + pytest-mock. Inject dependencies for easy mocking. No `sys.path` hacks.

@@ -29,7 +29,6 @@ src/
           <feature>/
             <Feature>ServiceTest.java
 build.gradle.kts  (or pom.xml)
-Makefile
 ```
 
 ## Naming conventions
@@ -72,20 +71,6 @@ Makefile
 - Use `Stream` API and `Optional` idiomatically. Avoid imperative loops for transformations.
 - Prefer `List.of()`, `Map.of()` for immutable collections.
 - No `null` in collections.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `./gradlew bootRun` or `java -jar build/libs/*.jar` |
-| `make test` | `./gradlew test` |
-| `make build` | `./gradlew build` |
-| `make clean` | `./gradlew clean` |
-| `make gen` | Generate code (e.g. `./gradlew generateJooq`, protobuf) |
-| `make debug` | `./gradlew bootRun --debug-jvm` (JDWP on port 5005) |
-| `make lint` | `./gradlew checkstyleMain pmdMain` |
-| `make format` | Apply google-java-format |
-| `make help` | List targets |
 
 ## Testing
 

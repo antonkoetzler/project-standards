@@ -19,7 +19,6 @@ src/
       repository.rs
       model.rs
 Cargo.toml
-Makefile
 ```
 
 - Workspace layout for multi-crate projects: `Cargo.toml` at root with `[workspace]`.
@@ -68,20 +67,6 @@ Makefile
 - Resources are tied to lifetimes. Use `Drop` to release resources deterministically.
 - No manual resource cleanup outside `Drop` implementations.
 - Prefer `BufReader`/`BufWriter` for file I/O.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `cargo run` |
-| `make test` | `cargo test` |
-| `make build` | `cargo build --release` |
-| `make clean` | `cargo clean` |
-| `make gen` | Generate code (e.g. protobuf via `prost`) |
-| `make debug` | `rust-lldb target/debug/<bin>` or `cargo run` with `RUST_LOG=debug` |
-| `make lint` | `cargo clippy -- -D warnings` |
-| `make format` | `cargo fmt` |
-| `make help` | List targets |
 
 ## Testing
 

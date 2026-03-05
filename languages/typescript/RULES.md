@@ -20,12 +20,6 @@
 - **DI:** Constructor injection. Never `new` a dependency inside a class. Register at composition root.
 - **Modules:** ES module syntax only (`import`/`export`). No `require()`.
 
-## Makefile
-
-- `make run` — run app; `make test` — jest/vitest; `make build` — tsc
-- `make clean` — remove dist; `make gen` — generate types/mocks
-- `make debug` — `node --inspect-brk`; `make lint` — eslint; `make format` — prettier
-
 ## Testing
 
 - Jest or Vitest. `<name>.test.ts` co-located. Test public API only.

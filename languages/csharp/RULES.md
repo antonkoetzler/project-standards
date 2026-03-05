@@ -21,12 +21,6 @@
 - **Errors:** Custom hierarchy (`AppException` base). Typed exceptions. Global exception middleware / `IExceptionHandler`. `Result<T>` for expected failures.
 - **DI:** Constructor injection only. No service locator. Interfaces (`I<Name>`) for services/repos. Register via extension methods in `Program.cs`.
 
-## Makefile
-
-- `make run` — `dotnet run`; `make test` — `dotnet test`; `make build` — `dotnet build -c Release`
-- `make debug` — DAP attach via `netcoredbg`; `make lint` — `dotnet format --verify-no-changes`
-- `make format` — `dotnet format`; `make migrate` — `dotnet ef database update`
-
 ## Testing
 
 - xUnit + FluentAssertions + Moq/NSubstitute. Unit: mock repos. Integration: `WebApplicationFactory` + Testcontainers.

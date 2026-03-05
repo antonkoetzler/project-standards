@@ -19,7 +19,6 @@ pkg/
   <shared>/          # Importable by external packages (keep minimal)
 go.mod
 go.sum
-Makefile
 ```
 
 - `internal/` enforces package privacy — only this module can import it.
@@ -69,20 +68,6 @@ Makefile
 ### Dependency injection
 - Wire dependencies in `main.go` or a `wire.go` file. No `init()` functions for DI.
 - Prefer explicit construction over global registries.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `go run ./cmd/<app>/` |
-| `make test` | `go test ./...` |
-| `make build` | `go build -o bin/<app> ./cmd/<app>/` |
-| `make clean` | Remove `bin/` |
-| `make gen` | `go generate ./...` (mocks, proto, etc.) |
-| `make debug` | `dlv debug ./cmd/<app>/` |
-| `make lint` | `golangci-lint run ./...` |
-| `make format` | `gofmt -w . && goimports -w .` |
-| `make help` | List targets |
 
 ## Testing
 

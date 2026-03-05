@@ -18,12 +18,6 @@
 - **DI:** Constructor injection only — never field `@Autowired`. Interfaces for services/repositories.
 - **Collections:** Stream API + `Optional`. `List.of()` / `Map.of()` for immutable. No nulls in collections.
 
-## Makefile
-
-- `make run` — `./gradlew bootRun`; `make test` — `./gradlew test`; `make build` — `./gradlew build`
-- `make debug` — `./gradlew bootRun --debug-jvm` (JDWP port 5005)
-- `make lint` — checkstyle + pmd; `make format` — google-java-format
-
 ## Testing
 
 - JUnit 5 + Mockito + AssertJ. Unit test services (mock repos). Integration: `@SpringBootTest` + Testcontainers.

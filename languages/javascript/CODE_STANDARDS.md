@@ -64,19 +64,6 @@ export async function getUser(id) { ... }
 - No global mutable state. No `window.foo = ...` in library code.
 - Configuration passed explicitly, not via globals or ambient injection.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `node src/main.js` |
-| `make test` | `jest` or `vitest` |
-| `make build` | Bundle with esbuild/rollup if needed |
-| `make clean` | Remove `dist/` and caches |
-| `make lint` | `eslint src/` |
-| `make format` | `prettier --write src/` |
-| `make debug` | `node --inspect-brk src/main.js` |
-| `make help` | List targets |
-
 ## Testing
 
 - Framework: Jest or Vitest. `<name>.test.js` co-located.

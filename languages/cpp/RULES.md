@@ -20,11 +20,6 @@
 - **Const correctness:** All non-mutating methods `const`. `constexpr` for compile-time constants.
 - **Concurrency:** `std::mutex`, `std::atomic`. No platform primitives. Protect all shared state.
 
-## Makefile
-
-- `make run` — build + run; `make test` — GTest/Catch2 with ASan + UBSan; `make build` — cmake release
-- `make debug` — `-g -O0` build, DAP attach via lldb-dap; `make lint` — clang-tidy; `make format` — clang-format
-
 ## Testing
 
 - GTest or Catch2. `EXPECT_*` over `ASSERT_*`. ASan + UBSan. Google Mock or test doubles from interfaces.

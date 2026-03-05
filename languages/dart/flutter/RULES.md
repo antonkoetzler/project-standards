@@ -2,8 +2,6 @@
 
 Extends Dart rules. Also select "Dart (general)" for complete Dart language rules.
 
-You are the code owner for the dev cycle. Do not delegate work to the user when you can do it yourself (run commands, tests, verification). Senior Flutter/Dart standards: anti-fragile, consistent, scalable.
-
 ## Structure
 
 - Feature-first under `lib/`. Single-file modules in their own folder — no exceptions.
@@ -21,23 +19,27 @@ You are the code owner for the dev cycle. Do not delegate work to the user when 
 - Class member order: (1) Static: fields→functions→getters→setters→operators. (2) Constructors. (3) Fields. (4) Functions. (5) Getters/Setters/Operators. Within each: overrides→public→private.
 - Omit parameter types when inferred: `build(context)` not `build(BuildContext context)`.
 - `final class` for widgets/classes not designed for extension. Ternary for two-way branches — no `if`/`return` binary choices.
+- Never use `as`/`is` keywords — use OOP inheritance and polymorphism instead. `sealed class` for widget variants.
 - `build()` minimal: no logic, no long blocks. Extract to named methods. One abstraction level per method.
 - Data-driven over repeated widget blocks. Extract patterns into reusable widgets/extensions in `core/`.
 - `const` constructors everywhere possible. No magic numbers. No `print` in production.
 - `MediaQuery.sizeOf(context)` over `.of(context).size` for breakpoint checks.
 
-## Dependency injection
+## Design system
 
-- injectable + get_it. `@lazySingleton` for services/repos. `@injectable` for factories.
-- Constructor injection. Run `make gen` after changing injected types.
+- Custom `ThemeExtension` classes for design system values. Semantic color tokens, not raw hex.
+- Builder functions for theme construction. No scattered theme logic in widgets.
+
+## State management
+
+- Provider for reactive state. Constructor injection preferred.
+- DI: injectable + get_it, kiwi, or manual — pick one per project.
 
 ## Localization
 
 - All user-facing strings via Flutter l10n. No hardcoded display text.
 
-## Makefile
+## Conventions
 
-- `make run` — flutter run; `make test` — flutter test; `make build` — flutter build --release
-- `make gen` — build_runner; `make debug` — flutter run --debug (DAP attach via Dart DAP adapter)
-- `make lint` — flutter analyze; `make format` — dart format .; `make help` — list targets
 - No `.vscode/tasks.json`, `.vscode/launch.json`, `.idea/` committed.
+

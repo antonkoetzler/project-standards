@@ -68,21 +68,6 @@ pyproject.toml
 - Use a DI framework (e.g. `dependency-injector`) for large projects.
 - No module-level singletons that are hard to mock in tests.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `python -m src.main` |
-| `make test` | `pytest` |
-| `make build` | Build wheel: `python -m build` |
-| `make clean` | Remove `dist/`, `__pycache__/`, `.mypy_cache/`, `.pytest_cache/` |
-| `make gen` | Generate code (e.g. protobuf, SQLAlchemy models) |
-| `make debug` | `python -m debugpy --listen 5678 --wait-for-client -m src.main` |
-| `make lint` | `ruff check .` |
-| `make format` | `black . && ruff check --fix .` |
-| `make typecheck` | `mypy src/` |
-| `make help` | List targets |
-
 ## Testing
 
 - Framework: pytest. Tests in `tests/` mirroring `src/` structure, or co-located in `tests/` subfolders.

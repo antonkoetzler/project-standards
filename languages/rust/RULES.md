@@ -19,12 +19,6 @@
 - **Async:** `tokio` runtime only. Never block inside async (`thread::sleep`, blocking I/O). Always `.await` or abort task handles.
 - **RAII:** Resources tied to lifetimes. `Drop` for deterministic release. No manual cleanup outside `Drop`.
 
-## Makefile
-
-- `make run` — `cargo run`; `make test` — `cargo test`; `make build` — `cargo build --release`
-- `make lint` — `cargo clippy -- -D warnings`; `make format` — `cargo fmt`
-- `make debug` — `rust-lldb` or `RUST_LOG=debug cargo run`
-
 ## Testing
 
 - Unit tests in `#[cfg(test)]` at bottom of file. Integration tests in `tests/`.

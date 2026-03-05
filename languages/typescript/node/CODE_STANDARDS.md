@@ -62,21 +62,6 @@ src/
 - Set security headers (Helmet or equivalent). Rate-limit public endpoints.
 - Never log secrets, tokens, or PII.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `node dist/main.js` or `ts-node src/main.ts` |
-| `make test` | `jest` or `vitest` |
-| `make build` | `tsc` |
-| `make clean` | Remove `dist/` |
-| `make gen` | Generate types (e.g. Prisma client, OpenAPI types) |
-| `make debug` | `node --inspect-brk dist/main.js` |
-| `make lint` | `eslint src/` |
-| `make format` | `prettier --write src/` |
-| `make migrate` | Run database migrations |
-| `make help` | List targets |
-
 ## Testing
 
 - Unit test services and repositories in isolation. Mock repositories in service tests.

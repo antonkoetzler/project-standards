@@ -27,7 +27,6 @@ tests/
       <Feature>/
         <Feature>ServiceTests.cs
 <App>.sln
-Makefile
 ```
 
 ## Naming conventions
@@ -77,21 +76,6 @@ Makefile
 - Register in `Program.cs` or extension methods (`services.AddFeature()`).
 - Interfaces for all services and repositories. `I<Name>` naming.
 - Scoped for per-request services, Singleton for stateless shared services, Transient sparingly.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `dotnet run --project src/<App>` |
-| `make test` | `dotnet test` |
-| `make build` | `dotnet build -c Release` |
-| `make clean` | `dotnet clean` |
-| `make gen` | Generate code (e.g. EF migrations, OpenAPI clients) |
-| `make debug` | `dotnet run` with `DOTNET_ENVIRONMENT=Development`; attach via `netcoredbg` DAP |
-| `make lint` | `dotnet format --verify-no-changes` |
-| `make format` | `dotnet format` |
-| `make migrate` | `dotnet ef database update` |
-| `make help` | List targets |
 
 ## Testing
 

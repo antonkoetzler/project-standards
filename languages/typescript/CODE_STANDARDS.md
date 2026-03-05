@@ -61,20 +61,6 @@ src/
 - Use ES module syntax (`import`/`export`). No `require()`.
 - Each module owns its types — do not leak internal types through barrel exports.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `ts-node src/main.ts` or `node dist/main.js` |
-| `make test` | `jest` or `vitest` |
-| `make build` | `tsc` |
-| `make clean` | Remove `dist/` and `node_modules/.cache` |
-| `make gen` | Generate types/mocks (e.g. `openapi-typescript`, `jest --generateMockFiles`) |
-| `make debug` | `node --inspect-brk dist/main.js` or `ts-node --inspect-brk` |
-| `make lint` | `eslint src/` |
-| `make format` | `prettier --write src/` |
-| `make help` | List targets |
-
 ## Testing
 
 - Framework: Jest or Vitest. Co-locate tests: `<name>.test.ts` next to the module.

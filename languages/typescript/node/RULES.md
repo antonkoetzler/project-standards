@@ -33,12 +33,6 @@ Extends TypeScript general rules. Node.js-specific rules take precedence.
 - Parameterized queries only — no string concatenation in SQL.
 - Security headers (Helmet). Rate-limit public endpoints. Never log secrets/PII.
 
-## Makefile
-
-- `make run` — start app; `make test` — jest/vitest; `make build` — tsc
-- `make debug` — `node --inspect-brk`; `make migrate` — run DB migrations
-- `make lint` — eslint; `make format` — prettier; `make gen` — prisma/openapi
-
 ## Testing
 
 - Unit test services (mock repositories). Integration test controllers with supertest.

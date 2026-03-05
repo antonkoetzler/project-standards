@@ -13,6 +13,7 @@ lib/
         <feature>_service.dart
         <feature>_repository.dart
         models/
+        exports.dart  # Re-exports public API for this feature
   <package>.dart      # Public API barrel — only export what is public
 test/
   src/
@@ -20,23 +21,25 @@ test/
       <feature>/
         <feature>_service_test.dart
 pubspec.yaml
-Makefile
+analysis_options.yaml
 ```
 
 - One object per file. `<package>.dart` exports only the public API.
+- Use `exports.dart` within feature folders to re-export public classes.
 - No `part`/`part of` outside of Flutter widget extraction patterns.
 
 ## Naming conventions
 
 - **Files:** snake_case (`user_service.dart`). **Classes:** PascalCase. **Functions/vars:** camelCase.
-- **Constants:** lowerCamelCase (`const maxRetries = 3`). Private module-level: `_camelCase`.
+- **Constants:** `k` prefix convention: `const kMaxRetries = 3`. Private: `_kMaxRetries`. Module-level private without prefix: `_camelCase`.
 - **Libraries/packages:** snake_case matching the file or package name.
 - **Extensions:** `<TypeName>Extension` or descriptive (`StringValidation`, `DateTimeFormatting`).
 
 ## Code style
 
-- **Formatter:** `dart format .` (built-in). No alternatives.
+- **Formatter:** `dart format .` (built-in). Configure line length in `analysis_options.yaml` or editor settings (120 recommended).
 - **Linter:** `dart analyze` with `analysis_options.yaml` — use `lints: recommended` minimum; `lints: strict` preferred.
+- **SDK management:** Use FVM (Flutter Version Manager) for consistent SDK versions across the team. Pin version in `.fvmrc`.
 - Dart 3.0+ minimum. Null safety required everywhere.
 - `final` for all local variables that don't reassign. `const` wherever possible.
 - `_` for unused parameters. Reuse `_` for multiple unused: `(_, __, state)`.
@@ -69,19 +72,13 @@ Makefile
 - Use a `Result<T>` type (e.g. from `package:result_dart`) for expected failures in domain logic.
 - `try`/`catch` only at system boundaries; let typed exceptions propagate through business logic.
 
-## Makefile
+### Type safety
+- Avoid `as` and `is` keywords — prefer OOP inheritance and polymorphism. Type casting/checking usually signals a design issue.
+- Use `sealed class` for closed type hierarchies with exhaustive `switch`.
 
-| Target | What it does |
-|--------|-------------|
-| `make run` | `dart run bin/main.dart` |
-| `make test` | `dart test` |
-| `make build` | `dart compile exe bin/main.dart -o bin/app` |
-| `make clean` | Remove `.dart_tool/` and build outputs |
-| `make gen` | `dart run build_runner build --delete-conflicting-outputs` |
-| `make debug` | `dart --pause-isolates-on-start run bin/main.dart` (DAP attach on published port) |
-| `make lint` | `dart analyze` |
-| `make format` | `dart format .` |
-| `make help` | List targets |
+### Versioning
+- `CHANGELOG.md` for release history. `STAGELOG.md` for pre-release notes that get merged into CHANGELOG on publish.
+- `tool/` directory for shell scripts: `setup.sh`, `format_and_fix.sh`, `deploy.sh`, etc.
 
 ## Testing
 

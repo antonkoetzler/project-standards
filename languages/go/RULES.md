@@ -26,11 +26,6 @@
 - Interfaces: `-er` suffix for single-behavior (`Storer`, `Reader`).
 - Receivers: short abbreviation, consistent across all methods.
 
-## Makefile
-
-- `make run` — `go run ./cmd/<app>/`; `make test` — `go test ./...`; `make build` — `go build`
-- `make debug` — `dlv debug`; `make lint` — golangci-lint; `make gen` — `go generate ./...`
-
 ## Testing
 
 - Co-located `_test.go`. `package <name>_test` for black-box. Table-driven with `t.Run`.

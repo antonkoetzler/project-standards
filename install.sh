@@ -2,19 +2,21 @@
 # Project Standards Installer
 #
 # Unix / macOS / Git Bash:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/antonkoetzler/project-standards/main/install.sh)
+#   bash <(curl -fsSL https://raw.githubusercontent.com/antonkoetzler/myoro-project-standards/main/install.sh)
 #
 # Options:
 #   --dry-run   Show what would be created without writing any files
+#   --sync      Re-fetch previously installed standards (reads docs/myoro-project-standards/.manifest)
 
 set -euo pipefail
 
-REPO="https://raw.githubusercontent.com/antonkoetzler/project-standards/main"
+REPO="https://raw.githubusercontent.com/antonkoetzler/myoro-project-standards/main"
 DRY_RUN=0
-for _a in "$@"; do [[ "$_a" == "--dry-run" || "$_a" == "-n" ]] && DRY_RUN=1; done
-
-# ── stdin → tty (needed for bash <(curl ...) pattern) ────────────────────────
-exec </dev/tty
+SYNC=0
+for _a in "$@"; do
+  [[ "$_a" == "--dry-run" || "$_a" == "-n" ]] && DRY_RUN=1
+  [[ "$_a" == "--sync" ]] && SYNC=1
+done
 
 # ── Colors ────────────────────────────────────────────────────────────────────
 _has_color() { command -v tput &>/dev/null && tput colors &>/dev/null 2>&1 && [[ $(tput colors) -ge 8 ]]; }
@@ -24,6 +26,181 @@ if _has_color; then
 else
   RST='' BOLD='' DIM='' GRN='' CYN='' YLW='' RED='' WHT=''
 fi
+
+# ── Fetch helper ──────────────────────────────────────────────────────────────
+_fetch() {
+  if command -v curl &>/dev/null; then
+    curl -fsSL "$1"
+  elif command -v wget &>/dev/null; then
+    wget -qO- "$1"
+  else
+    printf "${RED}Error: curl or wget required.${RST}\n" >&2; exit 1
+  fi
+}
+
+# ── Write file (respects --dry-run) ──────────────────────────────────────────
+_write() {
+  local path="$1"
+  local content="$2"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    printf "  ${DIM}[dry-run] %s${RST}\n" "$path"
+    return
+  fi
+  mkdir -p "$(dirname "$path")"
+  printf '%s\n' "$content" > "$path"
+}
+
+# ── Write once (only if file does not already exist) ─────────────────────────
+_write_once() {
+  local path="$1"
+  local content="$2"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    if [[ -f "$path" ]]; then
+      printf "  ${DIM}[dry-run] %s (already exists — skipped)${RST}\n" "$path"
+    else
+      printf "  ${DIM}[dry-run] %s (would create)${RST}\n" "$path"
+    fi
+    return
+  fi
+  [[ -f "$path" ]] && return
+  mkdir -p "$(dirname "$path")"
+  printf '%s\n' "$content" > "$path"
+}
+
+# ── Safe name: strip languages/ or practices/ prefix, replace / with _ ────────
+_safe() {
+  local p="$1"
+  p="${p#languages/}"
+  p="${p#practices/}"
+  printf '%s' "${p//\//_}"
+}
+
+MANIFEST_PATH="docs/myoro-project-standards/.manifest"
+
+# ── Sync mode ────────────────────────────────────────────────────────────────
+if [[ $SYNC -eq 1 ]]; then
+  if [[ ! -f "$MANIFEST_PATH" ]]; then
+    printf "${RED}Error: No manifest found at %s${RST}\n" "$MANIFEST_PATH"
+    printf "Run the installer without --sync first to set up your project.\n"
+    exit 1
+  fi
+
+  printf "${BOLD}${CYN}  ┌─────────────────────────────────────────┐${RST}\n"
+  printf "${BOLD}${CYN}  │   Project Standards Sync                │${RST}\n"
+  printf "${BOLD}${CYN}  └─────────────────────────────────────────┘${RST}\n\n"
+
+  [[ $DRY_RUN -eq 1 ]] && printf "  ${YLW}${BOLD}DRY RUN — no files will be written${RST}\n\n"
+
+  printf "  Syncing standards in: ${CYN}%s${RST}\n\n" "$(pwd)"
+
+  # Read manifest: each line is "path|label|glob|always|tool1,tool2,..."
+  # First lines are standards, last line starting with "tools:" lists tools
+  local sync_tools=""
+  local sync_paths=() sync_labels=() sync_globs=() sync_always=()
+
+  while IFS='|' read -r s_path s_label s_glob s_always; do
+    if [[ "$s_path" == "tools:"* ]]; then
+      sync_tools="${s_path#tools:}"
+      continue
+    fi
+    sync_paths+=("$s_path")
+    sync_labels+=("$s_label")
+    sync_globs+=("$s_glob")
+    sync_always+=("$s_always")
+  done < "$MANIFEST_PATH"
+
+  # Re-fetch standards
+  local ok_paths=() ok_labels=() ok_globs=() ok_always=()
+  local i
+  for (( i=0; i<${#sync_paths[@]}; i++ )); do
+    local path="${sync_paths[$i]}"
+    local label="${sync_labels[$i]}"
+    local glob="${sync_globs[$i]}"
+    local always="${sync_always[$i]}"
+    local safe
+    safe=$(_safe "$path")
+
+    printf "  Fetching ${BOLD}%s${RST}... " "$label"
+    local content=""
+    if content=$(_fetch "${REPO}/${path}/RULES.md" 2>/dev/null); then
+      _write "docs/myoro-project-standards/${safe}.md" "$content"
+      ok_paths+=("$path")
+      ok_labels+=("$label")
+      ok_globs+=("$glob")
+      ok_always+=("$always")
+      printf "${GRN}✓${RST}\n"
+    else
+      printf "${RED}✗ failed (skipped)${RST}\n"
+    fi
+  done
+
+  # Regenerate tool configs
+  IFS=',' read -ra tool_list <<< "$sync_tools"
+  for tool in "${tool_list[@]}"; do
+    [[ -z "$tool" ]] && continue
+    printf "  Regenerating ${BOLD}%s${RST} config... " "$tool"
+
+    case "$tool" in
+      claude)
+        rm -f CLAUDE.md
+        local md="# Project Rules"$'\n\n'
+        md+="Standards are stored in \`docs/myoro-project-standards/\`. Files below are auto-loaded into context."$'\n\n'
+        for (( i=0; i<${#ok_paths[@]}; i++ )); do
+          local safe
+          safe=$(_safe "${ok_paths[$i]}")
+          md+="@docs/myoro-project-standards/${safe}.md"$'\n'
+          md+="# @docs/custom/${safe}.md (create to extend)"$'\n'
+        done
+        _write "CLAUDE.md" "$md"
+        ;;
+      cursor)
+        rm -rf .cursor/rules
+        for (( i=0; i<${#ok_paths[@]}; i++ )); do
+          local safe always_str
+          safe=$(_safe "${ok_paths[$i]}")
+          always_str="false"
+          [[ "${ok_always[$i]}" -eq 1 ]] && always_str="true"
+          local mdc="---"$'\n'"description: ${ok_labels[$i]} standards"$'\n'"globs: ${ok_globs[$i]}"$'\n'"alwaysApply: ${always_str}"$'\n'"---"$'\n\n'"@docs/myoro-project-standards/${safe}.md"$'\n'"# Custom additions: create docs/custom/${safe}.md to extend"
+          _write ".cursor/rules/${safe}.mdc" "$mdc"
+        done
+        ;;
+      windsurf)
+        rm -rf .windsurf/rules
+        for (( i=0; i<${#ok_paths[@]}; i++ )); do
+          local safe
+          safe=$(_safe "${ok_paths[$i]}")
+          local ws
+          if [[ "${ok_always[$i]}" -eq 1 ]]; then
+            ws="---"$'\n'"trigger: always_on"$'\n'"---"
+          else
+            ws="---"$'\n'"trigger: glob"$'\n'"globs: ${ok_globs[$i]}"$'\n'"---"
+          fi
+          ws+=$'\n\n'"@docs/myoro-project-standards/${safe}.md"$'\n'"# Custom additions: create docs/custom/${safe}.md to extend"
+          _write ".windsurf/rules/${safe}.md" "$ws"
+        done
+        ;;
+      copilot)
+        rm -rf .github/instructions; rm -f .github/copilot-instructions.md
+        local idx="# Copilot Instructions"$'\n\n'"Per-language and practice rules are in \`.github/instructions/\` — each references \`docs/myoro-project-standards/\`."$'\n'
+        for (( i=0; i<${#ok_paths[@]}; i++ )); do
+          local safe
+          safe=$(_safe "${ok_paths[$i]}")
+          local inst="---"$'\n'"applyTo: \"${ok_globs[$i]}\""$'\n'"---"$'\n\n'"@docs/myoro-project-standards/${safe}.md"$'\n'"# Custom additions: create docs/custom/${safe}.md to extend"
+          _write ".github/instructions/${safe}.instructions.md" "$inst"
+          idx+=$'\n'"- \`${safe}\` → \`.github/instructions/${safe}.instructions.md\`"
+        done
+        _write ".github/copilot-instructions.md" "$idx"
+        ;;
+    esac
+    printf "${GRN}✓${RST}\n"
+  done
+
+  printf "\n  ${GRN}${BOLD}Sync complete!${RST}\n\n"
+  exit 0
+fi
+
+# ── stdin → tty (needed for bash <(curl ...) pattern) ────────────────────────
+exec </dev/tty
 
 # ── Language data ─────────────────────────────────────────────────────────────
 # Parallel arrays: label | repo-path | glob
@@ -60,8 +237,9 @@ _practice() {
   PRACTICE_LABELS+=("$1"); PRACTICE_PATHS+=("$2")
   PRACTICE_GLOBS+=("$3"); PRACTICE_ALWAYS+=("$4"); PRACTICE_SEL+=(0)
 }
-_practice "Engineering (SOLID, clean code, DRY)"  "practices/engineering"   "**/*"                               1
-_practice "Workflow (Makefile, DAP, no IDE)"       "practices/workflow"      "**/*"                               1
+_practice "AI code ownership"                     "practices/ai"            "**/*"                               1
+_practice "Engineering (SOLID, clean code, DRY)"   "practices/engineering"   "**/*"                               1
+_practice "Workflow (Makefile, DAP, no IDE)"        "practices/workflow"      "**/*"                               1
 _practice "Git & version control"                  "practices/git"           "**/*"                               1
 _practice "API design"                             "practices/api"           "**/*"                               1
 _practice "Security"                               "practices/security"      "**/*"                               1
@@ -80,14 +258,6 @@ _tool "Claude Code / Antigravity"  "claude"
 _tool "Cursor"                     "cursor"
 _tool "Windsurf"                   "windsurf"
 _tool "GitHub Copilot"             "copilot"
-
-# ── Safe name: strip languages/ or practices/ prefix, replace / with _ ────────
-_safe() {
-  local p="$1"
-  p="${p#languages/}"
-  p="${p#practices/}"
-  printf '%s' "${p//\//_}"
-}
 
 # ── Shared menu state (global to avoid nameref / bash 3 issues) ───────────────
 _M_LABELS=()
@@ -158,46 +328,6 @@ _run_menu() {
   done
 }
 
-# ── Fetch helper ──────────────────────────────────────────────────────────────
-_fetch() {
-  if command -v curl &>/dev/null; then
-    curl -fsSL "$1"
-  elif command -v wget &>/dev/null; then
-    wget -qO- "$1"
-  else
-    printf "${RED}Error: curl or wget required.${RST}\n" >&2; exit 1
-  fi
-}
-
-# ── Write file (respects --dry-run) ──────────────────────────────────────────
-_write() {
-  local path="$1"
-  local content="$2"
-  if [[ $DRY_RUN -eq 1 ]]; then
-    printf "  ${DIM}[dry-run] %s${RST}\n" "$path"
-    return
-  fi
-  mkdir -p "$(dirname "$path")"
-  printf '%s\n' "$content" > "$path"
-}
-
-# ── Write once (only if file does not already exist) ─────────────────────────
-_write_once() {
-  local path="$1"
-  local content="$2"
-  if [[ $DRY_RUN -eq 1 ]]; then
-    if [[ -f "$path" ]]; then
-      printf "  ${DIM}[dry-run] %s (already exists — skipped)${RST}\n" "$path"
-    else
-      printf "  ${DIM}[dry-run] %s (would create)${RST}\n" "$path"
-    fi
-    return
-  fi
-  [[ -f "$path" ]] && return
-  mkdir -p "$(dirname "$path")"
-  printf '%s\n' "$content" > "$path"
-}
-
 # ── Main installer ────────────────────────────────────────────────────────────
 _install() {
   # Collect selections
@@ -241,7 +371,7 @@ _install() {
   printf "  ${CYN}%s${RST}\n\n" "$(pwd)"
 
   if [[ ${#sel_labels[@]} -gt 0 ]]; then
-    printf "  ${BOLD}Languages:${RST}\n"
+    printf "  ${BOLD}Standards:${RST}\n"
     for lbl in "${sel_labels[@]}"; do printf "    ${GRN}✓${RST}  %s\n" "$lbl"; done
     printf "\n"
   fi
@@ -262,11 +392,11 @@ _install() {
   # Overwrite warning
   printf "  ${YLW}${BOLD}⚠ WARNING: The following will be completely replaced if they exist:${RST}\n"
   printf "  ${YLW}  CLAUDE.md${RST}\n"
-  printf "  ${YLW}  .cursor/rules/       (entire directory)${RST}\n"
-  printf "  ${YLW}  .windsurf/rules/     (entire directory)${RST}\n"
-  printf "  ${YLW}  .github/instructions/(entire directory)${RST}\n"
+  printf "  ${YLW}  .cursor/rules/                (entire directory)${RST}\n"
+  printf "  ${YLW}  .windsurf/rules/              (entire directory)${RST}\n"
+  printf "  ${YLW}  .github/instructions/         (entire directory)${RST}\n"
   printf "  ${YLW}  .github/copilot-instructions.md${RST}\n"
-  printf "  ${YLW}  docs/*.md            (managed files — docs/custom/ is never touched)${RST}\n"
+  printf "  ${YLW}  docs/myoro-project-standards/ (managed files — docs/custom/ is never touched)${RST}\n"
   printf "\n"
 
   printf "  ${BOLD}Is this correct? [y/N]${RST} "
@@ -289,7 +419,7 @@ _install() {
     done
   fi
 
-  # ── Fetch into docs/ ──────────────────────────────────────────────────────
+  # ── Fetch into docs/myoro-project-standards/ ────────────────────────────────
   local ok_paths=() ok_labels=() ok_globs=() ok_always=()
 
   for (( i=0; i<${#sel_paths[@]}; i++ )); do
@@ -304,7 +434,7 @@ _install() {
 
     local content=""
     if content=$(_fetch "${REPO}/${path}/RULES.md" 2>/dev/null); then
-      _write "docs/${safe}.md" "$content"
+      _write "docs/myoro-project-standards/${safe}.md" "$content"
       ok_paths+=("$path")
       ok_labels+=("$label")
       ok_globs+=("$glob")
@@ -320,13 +450,26 @@ _install() {
     exit 1
   fi
 
+  # ── Write manifest ─────────────────────────────────────────────────────────
+  local manifest=""
+  for (( i=0; i<${#ok_paths[@]}; i++ )); do
+    manifest+="${ok_paths[$i]}|${ok_labels[$i]}|${ok_globs[$i]}|${ok_always[$i]}"$'\n'
+  done
+  local tools_joined=""
+  for t in "${sel_tools[@]+"${sel_tools[@]}"}"; do
+    [[ -n "$tools_joined" ]] && tools_joined+=","
+    tools_joined+="$t"
+  done
+  manifest+="tools:${tools_joined}"
+  _write "$MANIFEST_PATH" "$manifest"
+
   # ── docs/custom/ ──────────────────────────────────────────────────────────
   local custom_readme="# docs/custom/
 
 This folder is yours. The installer never touches it.
 
 Create \`<safe_name>.md\` files here to add project-specific rules on top of the
-upstream standards. File names must match the safe names used in docs/:
+upstream standards. File names must match the safe names used in docs/myoro-project-standards/:
 
   dart.md, dart_flutter.md, typescript.md, engineering.md, git.md, etc.
 
@@ -344,11 +487,11 @@ All AI tool configs include a comment pointing here so you know where to extend.
 
       claude)
         local md="# Project Rules"$'\n\n'
-        md+="Standards are stored in \`docs/\`. Files below are auto-loaded into context."$'\n\n'
+        md+="Standards are stored in \`docs/myoro-project-standards/\`. Files below are auto-loaded into context."$'\n\n'
         for (( i=0; i<${#ok_paths[@]}; i++ )); do
           local safe
           safe=$(_safe "${ok_paths[$i]}")
-          md+="@docs/${safe}.md"$'\n'
+          md+="@docs/myoro-project-standards/${safe}.md"$'\n'
           md+="# @docs/custom/${safe}.md (create to extend)"$'\n'
         done
         _write "CLAUDE.md" "$md"
@@ -370,7 +513,7 @@ All AI tool configs include a comment pointing here so you know where to extend.
           mdc+="globs: ${glob}"$'\n'
           mdc+="alwaysApply: ${always_str}"$'\n'
           mdc+="---"$'\n\n'
-          mdc+="@docs/${safe}.md"$'\n'
+          mdc+="@docs/myoro-project-standards/${safe}.md"$'\n'
           mdc+="# Custom additions: create docs/custom/${safe}.md to extend"
           _write ".cursor/rules/${safe}.mdc" "$mdc"
         done
@@ -390,7 +533,7 @@ All AI tool configs include a comment pointing here so you know where to extend.
           else
             ws="---"$'\n'"trigger: glob"$'\n'"globs: ${glob}"$'\n'"---"
           fi
-          ws+=$'\n\n'"@docs/${safe}.md"$'\n'
+          ws+=$'\n\n'"@docs/myoro-project-standards/${safe}.md"$'\n'
           ws+="# Custom additions: create docs/custom/${safe}.md to extend"
           _write ".windsurf/rules/${safe}.md" "$ws"
         done
@@ -398,7 +541,7 @@ All AI tool configs include a comment pointing here so you know where to extend.
 
       copilot)
         local idx="# Copilot Instructions"$'\n\n'
-        idx+="Per-language and practice rules are in \`.github/instructions/\` — each references \`docs/\`."$'\n'
+        idx+="Per-language and practice rules are in \`.github/instructions/\` — each references \`docs/myoro-project-standards/\`."$'\n'
         for (( i=0; i<${#ok_paths[@]}; i++ )); do
           local path="${ok_paths[$i]}"
           local label="${ok_labels[$i]}"
@@ -407,7 +550,7 @@ All AI tool configs include a comment pointing here so you know where to extend.
           safe=$(_safe "$path")
           local inst
           inst="---"$'\n'"applyTo: \"${glob}\""$'\n'"---"$'\n\n'
-          inst+="@docs/${safe}.md"$'\n'
+          inst+="@docs/myoro-project-standards/${safe}.md"$'\n'
           inst+="# Custom additions: create docs/custom/${safe}.md to extend"
           _write ".github/instructions/${safe}.instructions.md" "$inst"
           idx+=$'\n'"- \`${safe}\` → \`.github/instructions/${safe}.instructions.md\`"
@@ -426,9 +569,9 @@ All AI tool configs include a comment pointing here so you know where to extend.
     printf "  ${YLW}Dry run complete — no files written.${RST}\n\n"
   else
     printf "  ${GRN}${BOLD}Done!${RST}\n\n"
-    printf "  ${BOLD}docs/${RST}               — standards content (overwritten on re-run)\n"
-    printf "  ${BOLD}docs/custom/${RST}         — your permanent zone (never touched by installer)\n"
-    printf "  ${DIM}AI tool configs reference docs/ — edit docs/custom/ to extend.${RST}\n\n"
+    printf "  ${BOLD}docs/myoro-project-standards/${RST}  — standards (overwritten on re-run or --sync)\n"
+    printf "  ${BOLD}docs/custom/${RST}                   — your permanent zone (never touched)\n"
+    printf "  ${DIM}Re-sync: run with --sync to re-fetch standards without repeating setup.${RST}\n\n"
   fi
 }
 

@@ -56,20 +56,6 @@ src/
 - One styling approach per project (CSS Modules, Tailwind, or styled-components). Do not mix.
 - No inline styles except for truly dynamic values that can't be expressed as classes.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | Start dev server (`vite` or `next dev`) |
-| `make test` | `vitest` or `jest` |
-| `make build` | Production build |
-| `make clean` | Remove `.next/`, `dist/`, cache |
-| `make gen` | Generate types (e.g. `openapi-typescript`) |
-| `make debug` | Dev server with source maps; connect via browser DevTools DAP |
-| `make lint` | `eslint src/` |
-| `make format` | `prettier --write src/` |
-| `make help` | List targets |
-
 ## Testing
 
 - Framework: Vitest + React Testing Library.

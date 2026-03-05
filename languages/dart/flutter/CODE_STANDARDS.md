@@ -49,17 +49,25 @@ Extends Dart code style. Flutter additions:
 - **`build()` minimal:** No logic or long blocks. Extract into named methods, one abstraction level each.
 - **Data-driven:** Config+map over repeated similar widgets. Extract repeated patterns into reusable widgets or helpers in `core/`.
 - **Constants:** Global constants in `constants.dart` as `const k<Name>`. Widget/feature-private: `_kShellSidebarBreakpoint`. No magic numbers in UI.
+- **Type safety:** Never use `as`/`is` keywords — use OOP inheritance and polymorphism instead. Type casting/checking signals a design issue.
+- **Sealed classes:** Use `sealed class` for widget variants and closed type hierarchies with exhaustive `switch`.
 
 ## Responsiveness
 
 - Breakpoint-based. Named constants for breakpoints (private or in `constants.dart` when shared).
 - `MediaQuery.sizeOf(context)` or `LayoutBuilder` — never `MediaQuery.of(context).size` (causes full rebuilds).
 
-## Dependency injection
+## Design system
 
-- **injectable** + **get_it**: register via annotations, resolve with `getIt<T>()`. No manual registration in `main`.
-- `@lazySingleton` for services/repositories. `@injectable` for factories.
-- Constructor injection preferred. Run `make gen` after changing injected types.
+- Use custom `ThemeExtension` classes for design system values (colors, typography, spacing, component styles).
+- Build theme via dedicated builder functions — don't scatter theme logic across widgets.
+- Semantic color tokens (not raw hex values) in all widgets. Reference theme extensions in `build()`.
+
+## State management
+
+- **Provider** for reactive state management. `MultiProvider` for multiple dependencies.
+- `ValueListenableBuilder` for reactive updates where appropriate.
+- Constructor injection preferred. DI can use **injectable** + **get_it**, **kiwi**, or manual wiring — pick one per project.
 
 ## Localization
 
@@ -69,20 +77,5 @@ Extends Dart code style. Flutter additions:
 
 - `const` constructors and widgets everywhere possible.
 - No `print` in production — use a proper logging package.
+- No `.vscode/tasks.json`, `.vscode/launch.json`, `.idea/runConfigurations/` committed.
 
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | `flutter run` |
-| `make test` | `flutter test` |
-| `make build` | `flutter build <platform> --release` |
-| `make clean` | `flutter clean` |
-| `make gen` | `dart run build_runner build --delete-conflicting-outputs` |
-| `make debug` | `flutter run --debug` (DAP attach via Dart DAP adapter) |
-| `make lint` | `flutter analyze` |
-| `make format` | `dart format .` |
-| `make help` | List targets (self-documenting `##` pattern) |
-
-No `.vscode/tasks.json`, `.vscode/launch.json`, `.idea/runConfigurations/` committed.
-`make debug` prints the VM Service URL — connect any DAP client there.

@@ -4,13 +4,13 @@
 
 Every project has a `Makefile`. No committed VSCode `tasks.json` or IDE run configs.
 
-Required targets: `run`, `test`, `build`, `clean`, `gen`, `debug`, `lint`, `format`, `help`.
+Common target categories: run, test, build, clean, code generation, debug, lint, format, help. Name targets to fit the project.
 
-`make help` must always work (self-documenting `##` comment pattern).
+Include a help target (self-documenting `##` comment pattern).
 
 ## DAP Debugging
 
-- `make debug` starts the app in debug/attach mode; prints port/URL to stdout.
+- A debug target starts the app in debug/attach mode; prints port/URL to stdout.
 - IDEs connect via DAP adapter. No IDE debug configs committed.
 - Do not commit `.vscode/launch.json`, `.idea/runConfigurations/`, or similar.
 

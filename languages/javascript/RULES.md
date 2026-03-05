@@ -18,11 +18,6 @@
 - **Async:** `async`/`await` everywhere. No raw callbacks unless forced by a library.
 - **No globals:** No global mutable state. Config passed explicitly.
 
-## Makefile
-
-- `make run` — `node src/main.js`; `make test` — jest/vitest; `make build` — bundle
-- `make lint` — eslint; `make format` — prettier; `make debug` — `node --inspect-brk`
-
 ## Testing
 
 - Jest or Vitest. `<name>.test.js` co-located. Test public API only. Mock at I/O boundaries.

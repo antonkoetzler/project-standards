@@ -36,7 +36,3 @@ Extends TypeScript general rules. React-specific rules take precedence.
 - Vitest + React Testing Library. Test behaviour, not implementation.
 - Query by role/label. No complex snapshot tests. Hooks: `renderHook`. E2E: Playwright.
 
-## Makefile
-
-- `make run` — dev server; `make test` — vitest; `make build` — production build
-- `make lint` — eslint; `make format` — prettier; `make gen` — openapi types

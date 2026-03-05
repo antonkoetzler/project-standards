@@ -18,11 +18,6 @@
 - **No global state:** Pass context structs through parameters. No hidden shared mutable state.
 - **Strings:** `strncpy`/`strncat` with bounds. `snprintf` over `sprintf`. Explicit null termination.
 
-## Makefile
-
-- `make run` — build + run; `make test` — tests with ASan + UBSan; `make build` — cmake release
-- `make debug` — `-g -O0` build, DAP attach; `make lint` — clang-tidy; `make format` — clang-format
-
 ## Testing
 
 - Unity/Criterion/CMocka. Compile with `-fsanitize=address,undefined`. All tests pass clean under sanitizers.

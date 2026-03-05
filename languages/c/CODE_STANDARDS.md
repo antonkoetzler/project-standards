@@ -18,8 +18,7 @@ include/
   <project>/               # Public headers installable by the build system
 tests/
   test_<feature>.c
-CMakeLists.txt (or Makefile)
-Makefile
+CMakeLists.txt
 ```
 
 - Headers expose only the public API. Implementation details stay in `.c` files.
@@ -48,7 +47,7 @@ Makefile
 - Every `malloc`/`calloc` return value is checked. Never assume allocation succeeds.
 - Wrap allocation in a project utility (`mem_alloc`, `mem_free`) that handles OOM consistently.
 - Every allocated resource has a corresponding free function called at the right time.
-- No memory leaks: use Valgrind or AddressSanitizer in CI (`make test` runs with ASan).
+- No memory leaks: use Valgrind or AddressSanitizer in CI (run tests with ASan).
 - Ownership must be documented in the header: who owns a pointer, who frees it.
 
 ### Error handling
@@ -66,19 +65,6 @@ Makefile
 - Use `strncpy`/`strncat` with explicit bounds. Never `strcpy`/`strcat`.
 - Prefer `snprintf` over `sprintf`. Always check length.
 - All strings are explicitly null-terminated; document buffer sizes.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | Build and run the binary |
-| `make test` | Build and run tests with ASan + UBSan |
-| `make build` | `cmake --build build/ --config Release` |
-| `make clean` | Remove `build/` |
-| `make debug` | Build with `-g -O0` and launch `lldb-dap` or `gdb` via DAP |
-| `make lint` | `clang-tidy src/**/*.c` |
-| `make format` | `clang-format -i src/**/*.c src/**/*.h` |
-| `make help` | List targets |
 
 ## Testing
 

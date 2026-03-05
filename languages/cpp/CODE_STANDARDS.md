@@ -20,7 +20,6 @@ include/
 tests/
   <Feature>Test.cpp
 CMakeLists.txt
-Makefile
 ```
 
 - Headers expose only the public API. Use `#pragma once`.
@@ -77,19 +76,6 @@ Makefile
 - `std::thread`, `std::mutex`, `std::atomic`. No platform-specific threading primitives.
 - Protect shared state with `std::mutex` or `std::atomic`. Document thread ownership.
 - Prefer `std::async` or a thread pool over raw `std::thread` for task-based work.
-
-## Makefile
-
-| Target | What it does |
-|--------|-------------|
-| `make run` | Build and run the binary |
-| `make test` | Build and run tests with ASan + UBSan |
-| `make build` | `cmake --build build/ --config Release` |
-| `make clean` | Remove `build/` |
-| `make debug` | Build with `-g -O0`, launch `lldb-dap` via DAP |
-| `make lint` | `clang-tidy src/**/*.cpp` |
-| `make format` | `clang-format -i src/**/*.cpp src/**/*.hpp` |
-| `make help` | List targets |
 
 ## Testing
 
